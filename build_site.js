@@ -142,7 +142,7 @@ function generateFooter(products, siteConfig) {
     }).join('');
 
     const logoContent = siteConfig.logoUrl 
-        ? `<img src="${siteConfig.logoUrl}" alt="${siteConfig.logoText || 'Logo'}" class="h-8 w-auto"> <span class="logo-text text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">${siteConfig.logoText || 'realpvashop'}</span>`
+        ? `<img src="${getImageUrl(siteConfig.logoUrl) || siteConfig.logoUrl}" alt="${siteConfig.logoText || 'Logo'}" class="h-8 w-auto" loading="lazy" width="32" height="32"> <span class="logo-text text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">${siteConfig.logoText || 'realpvashop'}</span>`
         : `<span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">{{LOGO_TEXT}}</span>`;
 
     const siteDomain = (siteConfig.siteTitle || 'realpvashop').toLowerCase().replace(/\s+/g, '') + '.com';
@@ -397,7 +397,21 @@ function renderStars(rating = 5, sizeClass = "w-4 h-4") {
 
 function getImageUrl(img, basePath = '/') {
     if (!img) return null;
+    const normalizeLocalWebp = (rawPath) => {
+        const qIndex = rawPath.indexOf('?');
+        const hIndex = rawPath.indexOf('#');
+        let cutIndex = -1;
+        if (qIndex !== -1 && hIndex !== -1) cutIndex = Math.min(qIndex, hIndex);
+        else cutIndex = qIndex !== -1 ? qIndex : hIndex;
+        const base = cutIndex === -1 ? rawPath : rawPath.slice(0, cutIndex);
+        const suffix = cutIndex === -1 ? '' : rawPath.slice(cutIndex);
+        if (/\.(png|jpe?g)$/i.test(base)) {
+            return base.replace(/\.(png|jpe?g)$/i, '.webp') + suffix;
+        }
+        return rawPath;
+    };
     if (img.startsWith('http') || img.startsWith('data:')) return img;
+    img = normalizeLocalWebp(img);
     
     // Convert absolute paths to relative if basePath is provided
     if (img.startsWith('/images/products/')) {
@@ -825,7 +839,7 @@ function generateSidebar(products, blogs) {
     const popularBlogs = blogs.slice(0, 3).map(b => `
         <li class="flex gap-3 items-start">
              <div class="w-16 h-16 bg-slate-200 rounded-lg overflow-hidden shrink-0">
-                <img src="${getImageUrl(b.image, '../../')}" alt="${b.title}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
+                <img src="${getImageUrl(b.image, '../../')}" alt="${b.title}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition" loading="lazy" width="64" height="64">
              </div>
              <div>
                  <a href="${getDynamicUrl('blog', b.slug, false)}" class="text-sm font-bold text-slate-900 hover:text-cyan-600 leading-tight block mb-1">${b.title}</a>
@@ -1027,7 +1041,7 @@ for (let i = 1; i <= totalPages; i++) {
     const blogGrid = pageBlogs.map((b, idx) => `
         <article class="group relative flex flex-col bg-white rounded-3xl border border-slate-200 overflow-hidden transition-all duration-500 hover:border-cyan-300 hover:shadow-md hover:-translate-y-2 h-full">
             <a href="${getDynamicUrl('blog', b.slug).replace(baseUrl, '/')}" class="h-64 overflow-hidden relative block">
-                <img src="${getImageUrl(b.image, pageRelPath) || 'https://via.placeholder.com/600x400?text=No+Image'}" alt="${b.title}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" ${i === 1 && idx === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} width="600" height="400">
+                <img src="${getImageUrl(b.image, pageRelPath) || ''}" alt="${b.title}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" ${i === 1 && idx === 0 ? 'fetchpriority="high" ' : ''}loading="lazy" width="600" height="400">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-80"></div>
                 
                 <!-- Floating Date Badge -->
@@ -1226,7 +1240,7 @@ blogs.forEach((post, index) => {
                     </p>
                 </header>
 
-                ${post.image ? `<img src="${blogImageUrl}" alt="${blogImageAlt}" class="w-full rounded-2xl mb-10 shadow-md border border-slate-200" fetchpriority="high" width="1200" height="630">` : ''}
+                ${post.image ? `<img src="${blogImageUrl}" alt="${blogImageAlt}" class="w-full rounded-2xl mb-10 shadow-md border border-slate-200" fetchpriority="high" loading="lazy" width="1200" height="630">` : ''}
 
                 <div class="blog-content prose lg:prose-xl max-w-none prose-headings:text-slate-900 prose-a:text-cyan-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-slate-900">
                     ${contentWithCta}
@@ -1452,7 +1466,7 @@ products.forEach(product => {
     html = html.replace('{{PRODUCT_IMAGE_PRELOAD}}', preloadHtml);
 
     const productImageHtml = fullImgUrl 
-        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover z-0" fetchpriority="high" width="800" height="600">`
+        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover z-0" fetchpriority="high" loading="lazy" width="800" height="600">`
         : '';
     html = html.replace('{{PRODUCT_IMAGE_HTML}}', productImageHtml);
     html = html.replace('{{PRODUCT_BG_CLASS}}', fullImgUrl ? 'hidden' : '');

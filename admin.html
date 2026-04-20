@@ -626,14 +626,59 @@
             }
         }
 
+        function normalizeToWebpPath(rawPath) {
+            if (!rawPath) return '';
+            const value = String(rawPath).trim();
+            if (!value || value.startsWith('data:')) return value;
+            return value.replace(/\.(png|jpe?g)(?=([?#].*)?$)/i, '.webp');
+        }
+
+        async function convertToWebpFile(file) {
+            if (file.type === 'image/webp') return file;
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) throw new Error('Canvas context unavailable');
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob((blob) => {
+                            URL.revokeObjectURL(objectUrl);
+                            if (!blob) {
+                                reject(new Error('WEBP conversion failed'));
+                                return;
+                            }
+                            const webpName = (file.name || 'image')
+                                .replace(/\.[^.]+$/, '')
+                                .replace(/[^\w.-]+/g, '-')
+                                + '.webp';
+                            resolve(new File([blob], webpName, { type: 'image/webp' }));
+                        }, 'image/webp', 0.85);
+                    } catch (e) {
+                        URL.revokeObjectURL(objectUrl);
+                        reject(e);
+                    }
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('Invalid image file'));
+                };
+                img.src = objectUrl;
+            });
+        }
+
         async function handleImageUpload(input, targetId) {
             const file = input.files[0];
             if (!file) return;
             
             // Security: Validate File Type
-            const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
             if (!validTypes.includes(file.type)) {
-                alert('Invalid file type. Only JPG, PNG, WEBP, and SVG allowed.');
+                alert('Invalid file type. Only JPG, PNG, and WEBP allowed.');
                 input.value = ''; // Clear input
                 return;
             }
@@ -656,16 +701,18 @@
             }
 
             try {
+                const webpFile = await convertToWebpFile(file);
+                const uploadName = webpFile.name || (file.name.replace(/\.[^.]+$/, '') + '.webp');
                 // Use the filename in the query string so the server knows where to save it
-                const response = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+                const response = await fetch(`/api/upload?filename=${encodeURIComponent(uploadName)}`, {
                     method: 'POST',
-                    body: file // Send raw file content
+                    body: webpFile // Send WEBP file content
                 });
 
                 if (response.ok) {
-                    const imagePath = await response.text();
+                    const imagePath = normalizeToWebpPath(await response.text());
                     document.getElementById(targetId).value = imagePath; // Set the path in the text input
-                    alert('Image uploaded successfully!');
+                    alert('Image uploaded and converted to WEBP successfully!');
                 } else {
                     const errorText = await response.text();
                     throw new Error(errorText || 'Upload failed');
@@ -1107,7 +1154,7 @@
             p.active = document.getElementById('edit-prod-active').value === 'true';
             p.display_title = document.getElementById('edit-prod-display-title').value;
             p.category = document.getElementById('edit-prod-category').value;
-            p.image = document.getElementById('edit-prod-image').value;
+            p.image = normalizeToWebpPath(document.getElementById('edit-prod-image').value);
             p.image_title = document.getElementById('edit-prod-image-title').value;
             p.min_price = parseFloat(document.getElementById('edit-prod-min').value);
             p.max_price = parseFloat(document.getElementById('edit-prod-max').value);
@@ -1269,7 +1316,7 @@
             cmsBlogs[idx].title = document.getElementById('edit-blog-title').value;
             cmsBlogs[idx].slug = document.getElementById('edit-blog-slug').value;
             cmsBlogs[idx].date = document.getElementById('edit-blog-date').value;
-            cmsBlogs[idx].image = document.getElementById('edit-blog-image').value;
+            cmsBlogs[idx].image = normalizeToWebpPath(document.getElementById('edit-blog-image').value);
             
             // CTAs
             cmsBlogs[idx].cta_1_text = document.getElementById('edit-blog-cta1-text').value;
