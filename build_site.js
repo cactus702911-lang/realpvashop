@@ -82,6 +82,7 @@ if (!products || !siteConfig) {
 }
 
 console.log(`Loaded ${products.length} products and ${blogs.length} blog posts.`);
+const assetVersion = Date.now().toString();
 
 // --- Load Templates ---
 const headerHtml = fs.readFileSync('header_partial.html', 'utf8');
@@ -142,7 +143,7 @@ function generateFooter(products, siteConfig) {
     }).join('');
 
     const logoContent = siteConfig.logoUrl 
-        ? `<img src="${getImageUrl(siteConfig.logoUrl) || siteConfig.logoUrl}" alt="${siteConfig.logoText || 'Logo'}" class="h-8 w-auto" loading="lazy" width="32" height="32"> <span class="logo-text text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">${siteConfig.logoText || 'realpvashop'}</span>`
+        ? `<img src="${getImageUrl(siteConfig.logoUrl) || siteConfig.logoUrl}" alt="${siteConfig.logoText || 'Logo'}" class="h-8 w-auto" loading="lazy" decoding="async" width="32" height="32"> <span class="logo-text text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">${siteConfig.logoText || 'realpvashop'}</span>`
         : `<span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 font-extrabold text-2xl tracking-tight">{{LOGO_TEXT}}</span>`;
 
     const siteDomain = (siteConfig.siteTitle || 'realpvashop').toLowerCase().replace(/\s+/g, '') + '.com';
@@ -367,6 +368,7 @@ function replaceGlobalPlaceholders(html, siteConfig) {
     output = output.replace(/{{POPUP_TITLE}}/g, siteConfig.popupTitle || 'Reach Out to Us');
     output = output.replace(/{{POPUP_MESSAGE}}/g, siteConfig.popupMessage || "Need assistance? Our experts are available 24/7.");
     output = output.replace(/{{BADGE_TEXT}}/g, siteConfig.badgeText || 'Top-Tier PVA Accounts & Authentic Reviews');
+    output = output.replace(/{{ASSET_VERSION}}/g, assetVersion);
     
     // Handle Canonical URL dynamically
     output = output.replace(/{{CANONICAL_URL}}/g, getDynamicUrl('home'));
@@ -380,6 +382,16 @@ function minifyHTML(html) {
         .replace(/<!--[\s\S]*?-->/g, '') // Remove comments
         .replace(/\s+/g, ' ')            // Collapse whitespace
         .replace(/>\s+</g, '><')         // Remove space between tags
+        .trim();
+}
+
+function minifyCSS(css) {
+    if (!css) return '';
+    return css
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*([{}:;,>])\s*/g, '$1')
+        .replace(/;}/g, '}')
         .trim();
 }
 
@@ -464,7 +476,7 @@ function computeProductColor(product) {
 function renderProductCard(product, basePath = '/') {
     const fullImgUrl = getImageUrl(product.image, basePath);
     const imageHtml = fullImgUrl 
-        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" width="400" height="300">`
+        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async" width="400" height="300">`
         : '';
     const solidColor = computeProductColor(product);
     const overlayClass = fullImgUrl ? '' : 'bg-black/0 group-hover:bg-black/0';
@@ -661,6 +673,7 @@ cssContent = cssContent.replace(/(appearance:\s*[^;! }]+);\s*appearance:\s*\1/g,
 cssContent = cssContent.replace(/(canvas|audio|iframe|embed|object)[^{]*\{[^}]*display:\s*block;?[^}]*vertical-align:\s*middle;?[^}]*\}/g, (match) => {
     return match.replace(/vertical-align:\s*middle;?/g, '');
 });
+cssContent = minifyCSS(cssContent);
 
 console.log("Reading header_partial.html...");
 // We will generate the header dynamically for each page using generateFullHeader()
@@ -839,7 +852,7 @@ function generateSidebar(products, blogs) {
     const popularBlogs = blogs.slice(0, 3).map(b => `
         <li class="flex gap-3 items-start">
              <div class="w-16 h-16 bg-slate-200 rounded-lg overflow-hidden shrink-0">
-                <img src="${getImageUrl(b.image, '../../')}" alt="${b.title}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition" loading="lazy" width="64" height="64">
+                <img src="${getImageUrl(b.image, '../../')}" alt="${b.title}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition" loading="lazy" decoding="async" width="64" height="64">
              </div>
              <div>
                  <a href="${getDynamicUrl('blog', b.slug, false)}" class="text-sm font-bold text-slate-900 hover:text-cyan-600 leading-tight block mb-1">${b.title}</a>
@@ -1041,7 +1054,7 @@ for (let i = 1; i <= totalPages; i++) {
     const blogGrid = pageBlogs.map((b, idx) => `
         <article class="group relative flex flex-col bg-white rounded-3xl border border-slate-200 overflow-hidden transition-all duration-500 hover:border-cyan-300 hover:shadow-md hover:-translate-y-2 h-full">
             <a href="${getDynamicUrl('blog', b.slug).replace(baseUrl, '/')}" class="h-64 overflow-hidden relative block">
-                <img src="${getImageUrl(b.image, pageRelPath) || ''}" alt="${b.title}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" ${i === 1 && idx === 0 ? 'fetchpriority="high" ' : ''}loading="lazy" width="600" height="400">
+                <img src="${getImageUrl(b.image, pageRelPath) || ''}" alt="${b.title}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" ${i === 1 && idx === 0 ? 'fetchpriority="high" ' : ''}loading="lazy" decoding="async" width="600" height="400">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-80"></div>
                 
                 <!-- Floating Date Badge -->
@@ -1210,7 +1223,6 @@ blogs.forEach((post, index) => {
             .blog-content h3 { margin-top: 2.25rem; }
         }
     </style>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body class="bg-slate-50 text-slate-700 font-sans antialiased">
@@ -1240,7 +1252,7 @@ blogs.forEach((post, index) => {
                     </p>
                 </header>
 
-                ${post.image ? `<img src="${blogImageUrl}" alt="${blogImageAlt}" class="w-full rounded-2xl mb-10 shadow-md border border-slate-200" fetchpriority="high" loading="lazy" width="1200" height="630">` : ''}
+                ${post.image ? `<img src="${blogImageUrl}" alt="${blogImageAlt}" class="w-full rounded-2xl mb-10 shadow-md border border-slate-200" fetchpriority="high" loading="lazy" decoding="async" width="1200" height="630">` : ''}
 
                 <div class="blog-content prose lg:prose-xl max-w-none prose-headings:text-slate-900 prose-a:text-cyan-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-slate-900">
                     ${contentWithCta}
@@ -1268,16 +1280,8 @@ blogs.forEach((post, index) => {
     </footer>
 
     <!-- Scripts -->
-    <script>
-        document.write('<script src="../../site_data.js?v=' + Date.now() + '"><\\/script>');
-        document.write('<script src="../../ui.js?v=' + Date.now() + '"><\\/script>');
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        });
-    </script>
+    <script src="../../site_data.js?v=${assetVersion}" defer></script>
+    <script src="../../ui.js?v=${assetVersion}" defer></script>
 </body>
 </html>`;
 
@@ -1340,7 +1344,7 @@ products.forEach(product => {
         const relUrl = getDynamicUrl('product', relSlug, false);
         const relImgUrl = getImageUrl(p.image, '../../');
         const relImgHtml = relImgUrl 
-            ? `<img src="${relImgUrl}" alt="${p.image_title || p.title}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" width="400" height="300">`
+            ? `<img src="${relImgUrl}" alt="${p.image_title || p.title}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async" width="400" height="300">`
             : '';
         const relOverlayClass = relImgUrl ? '' : 'bg-black/0 group-hover:bg-black/0';
         const relOverlayLayerHtml = relImgUrl ? '' : `<div class="absolute inset-0 ${relOverlayClass} transition-colors duration-300"></div>`;
@@ -1466,7 +1470,7 @@ products.forEach(product => {
     html = html.replace('{{PRODUCT_IMAGE_PRELOAD}}', preloadHtml);
 
     const productImageHtml = fullImgUrl 
-        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover z-0" fetchpriority="high" loading="lazy" width="800" height="600">`
+        ? `<img src="${fullImgUrl}" alt="${product.image_title || product.title}" class="absolute inset-0 w-full h-full object-cover z-0" fetchpriority="high" loading="lazy" decoding="async" width="800" height="600">`
         : '';
     html = html.replace('{{PRODUCT_IMAGE_HTML}}', productImageHtml);
     html = html.replace('{{PRODUCT_BG_CLASS}}', fullImgUrl ? 'hidden' : '');

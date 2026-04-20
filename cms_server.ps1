@@ -135,10 +135,6 @@ while ($listener.IsListening) {
         if (Test-Path $localPath -PathType Leaf) {
             try {
                 $bytes = [System.IO.File]::ReadAllBytes($localPath)
-                $response.ContentLength64 = $bytes.Length
-                $response.AddHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-                $response.AddHeader("Pragma", "no-cache")
-                $response.AddHeader("Expires", "0")
                 
                 # Basic MIME types
                 $ext = [System.IO.Path]::GetExtension($localPath).ToLower()
@@ -154,8 +150,32 @@ while ($listener.IsListening) {
                     ".svg"  { $response.ContentType = "image/svg+xml" }
                     Default { $response.ContentType = "application/octet-stream" }
                 }
+
+                # Caching policy: short cache for HTML, long immutable cache for static assets
+                if ($ext -eq ".html") {
+                    $response.AddHeader("Cache-Control", "public, max-age=300")
+                } else {
+                    $response.AddHeader("Cache-Control", "public, max-age=31536000, immutable")
+                }
+
+                # Optional gzip compression for text-like assets
+                $acceptEncoding = ($request.Headers["Accept-Encoding"] | Out-String).ToLower()
+                $isCompressible = @(".html", ".js", ".css", ".json", ".svg", ".txt", ".xml") -contains $ext
+                if ($isCompressible -and $acceptEncoding.Contains("gzip")) {
+                    $mem = New-Object System.IO.MemoryStream
+                    $gzip = New-Object System.IO.Compression.GzipStream($mem, [System.IO.Compression.CompressionMode]::Compress)
+                    $gzip.Write($bytes, 0, $bytes.Length)
+                    $gzip.Close()
+                    $bytes = $mem.ToArray()
+                    $mem.Close()
+                    $response.AddHeader("Content-Encoding", "gzip")
+                    $response.AddHeader("Vary", "Accept-Encoding")
+                }
+                $response.ContentLength64 = $bytes.Length
                 
-                $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                if ($request.HttpMethod -ne "HEAD") {
+                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                }
             } catch {
                 $response.StatusCode = 500
             }
